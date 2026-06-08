@@ -72,7 +72,7 @@ st.markdown("""
         border-left: 5px solid #1EC800;
     }
 </style>
-""", unsafe_allow_index=True)
+""", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # 2. 사이드바 (API 인증 및 조건 설정)
