@@ -80,22 +80,27 @@ st.markdown("""
 import os
 from dotenv import load_dotenv
 
-# .env 파일 로드 (.env 파일이 naver-api-app/.env 에 위치하므로 경로를 지정하여 로드)
-current_dir = os.path.dirname(os.path.abspath(__file__))
-dotenv_path = os.path.join(current_dir, "..", ".env")
-load_dotenv(dotenv_path)
+# 1. Streamlit Secrets에서 API 키 로드 시도 (배포 환경)
+client_id = st.secrets.get("NAVER_CLIENT_ID", None)
+client_secret = st.secrets.get("NAVER_CLIENT_SECRET", None)
+loaded_from_secrets = True if client_id and client_secret else False
 
-# 환경 변수에서 API 키 가져오기
-client_id = os.getenv("NAVER_CLIENT_ID", "")
-client_secret = os.getenv("NAVER_CLIENT_SECRET", "")
+# 2. st.secrets에 없으면 로컬 .env 파일 로드 시도
+if not loaded_from_secrets:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    dotenv_path = os.path.join(current_dir, "..", ".env")
+    load_dotenv(dotenv_path)
+    client_id = os.getenv("NAVER_CLIENT_ID", "")
+    client_secret = os.getenv("NAVER_CLIENT_SECRET", "")
 
 st.sidebar.title("🔑 네이버 API 설정")
 if client_id and client_secret:
-    st.sidebar.success("✅ .env 파일에서 API 인증 키가 로드되었습니다.")
+    source = "Streamlit 설정(Secrets)" if loaded_from_secrets else ".env 파일"
+    st.sidebar.success(f"✅ {source}에서 API 인증 키가 로드되었습니다.")
     # 보안을 위해 마스킹하여 표시
     st.sidebar.text(f"ID: {client_id[:4]}***")
 else:
-    st.sidebar.error("❌ .env 파일에서 API 인증 키를 찾을 수 없습니다.")
+    st.sidebar.error("❌ API 인증 키를 찾을 수 없습니다. (.env 혹은 Streamlit Secrets)")
     client_id = st.sidebar.text_input("Naver Client ID", placeholder="Client ID를 입력하세요")
     client_secret = st.sidebar.text_input("Naver Client Secret", placeholder="Client Secret을 입력하세요", type="password")
 
