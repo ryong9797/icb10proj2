@@ -77,9 +77,27 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 # 2. 사이드바 (API 인증 및 조건 설정)
 # -----------------------------------------------------------------------------
+import os
+from dotenv import load_dotenv
+
+# .env 파일 로드 (.env 파일이 naver-api-app/.env 에 위치하므로 경로를 지정하여 로드)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+dotenv_path = os.path.join(current_dir, "..", ".env")
+load_dotenv(dotenv_path)
+
+# 환경 변수에서 API 키 가져오기
+client_id = os.getenv("NAVER_CLIENT_ID", "")
+client_secret = os.getenv("NAVER_CLIENT_SECRET", "")
+
 st.sidebar.title("🔑 네이버 API 설정")
-client_id = st.sidebar.text_input("Naver Client ID", placeholder="Client ID를 입력하세요")
-client_secret = st.sidebar.text_input("Naver Client Secret", placeholder="Client Secret을 입력하세요", type="password")
+if client_id and client_secret:
+    st.sidebar.success("✅ .env 파일에서 API 인증 키가 로드되었습니다.")
+    # 보안을 위해 마스킹하여 표시
+    st.sidebar.text(f"ID: {client_id[:4]}***")
+else:
+    st.sidebar.error("❌ .env 파일에서 API 인증 키를 찾을 수 없습니다.")
+    client_id = st.sidebar.text_input("Naver Client ID", placeholder="Client ID를 입력하세요")
+    client_secret = st.sidebar.text_input("Naver Client Secret", placeholder="Client Secret을 입력하세요", type="password")
 
 st.sidebar.markdown("---")
 st.sidebar.title("🔍 검색 조건")
@@ -315,7 +333,9 @@ if check_api_keys():
                 "식품": "50000006",
                 "스포츠/레저": "50000007",
                 "생활/건강": "50000008",
-                "여행/문화": "50000009"
+                "여가/생활편의": "50000009",
+                "면세점": "50000010",
+                "도서": "50005542"
             }
             selected_cat = st.selectbox("쇼핑 대분류 카테고리 선택", list(categories.keys()), index=3) # 기본 디지털/가전
             cat_code = categories[selected_cat]
