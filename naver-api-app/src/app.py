@@ -81,9 +81,16 @@ import os
 from dotenv import load_dotenv
 
 # 1. Streamlit Secrets에서 API 키 로드 시도 (배포 환경)
-client_id = st.secrets.get("NAVER_CLIENT_ID", None)
-client_secret = st.secrets.get("NAVER_CLIENT_SECRET", None)
-loaded_from_secrets = True if client_id and client_secret else False
+client_id = None
+client_secret = None
+loaded_from_secrets = False
+
+try:
+    client_id = st.secrets.get("NAVER_CLIENT_ID", None)
+    client_secret = st.secrets.get("NAVER_CLIENT_SECRET", None)
+    loaded_from_secrets = True if client_id and client_secret else False
+except Exception:
+    pass
 
 # 2. st.secrets에 없으면 로컬 .env 파일 로드 시도
 if not loaded_from_secrets:
@@ -111,6 +118,11 @@ st.sidebar.title("🔍 검색 조건")
 keywords_input = st.sidebar.text_input("검색어 (쉼표 ','로 구분)", "아이폰, 갤럭시")
 keywords = [k.strip() for k in keywords_input.split(",") if k.strip()]
 
+# 상세 분석 키워드 선택 (단일 검색어 종합 분석용)
+selected_keyword = None
+if keywords:
+    selected_keyword = st.sidebar.selectbox("🎯 상세 분석 키워드 선택", keywords, index=0)
+
 # 검색 기간 설정
 today = datetime.today()
 default_start_date = today - timedelta(days=90)
@@ -130,7 +142,8 @@ page = st.sidebar.radio(
         "3. 블로그 검색 분석",
         "4. 뉴스 검색 분석",
         "5. 카페글 검색 분석",
-        "6. 쇼핑 상품 및 가격 분석"
+        "6. 쇼핑 상품 및 가격 분석",
+        "7. 검색어 원스톱 종합 분석 (Unified View)"
     ]
 )
 
@@ -746,3 +759,205 @@ if check_api_keys():
                     )
             else:
                 st.info("수집된 쇼핑 상품 데이터가 없습니다.")
+
+        # --- 7페이지: 검색어 원스톱 종합 분석 (Unified View) ---
+        elif page == "7. 검색어 원스톱 종합 분석 (Unified View)":
+            st.header(f"🎯 [{selected_keyword}] 원스톱 종합 분석 대시보드")
+            st.markdown(f"선택하신 단일 검색어 **'{selected_keyword}'**에 대한 블로그, 카페, 뉴스, 쇼핑 데이터를 다각도로 실시간 수집하여 종합 분석합니다.")
+            
+            if not selected_keyword:
+                st.warning("분석할 키워드를 선택해 주세요.")
+            else:
+                # 데이터 수집 (네이버 검색 API 호출)
+                with st.spinner(f"[{selected_keyword}] 관련 데이터 수집 중 (블로그, 뉴스, 카페, 쇼핑)..."):
+                    b_status, b_data = fetch_search_api("blog", selected_keyword, display=100)
+                    n_status, n_data = fetch_search_api("news", selected_keyword, display=100)
+                    c_status, c_data = fetch_search_api("cafearticle", selected_keyword, display=100)
+                    s_status, s_data = fetch_search_api("shopping", selected_keyword, display=100)
+                
+                # 데이터프레임 변환
+                df_blog = pd.DataFrame(b_data.get('items', [])) if b_status == 200 else pd.DataFrame()
+                df_news = pd.DataFrame(n_data.get('items', [])) if n_status == 200 else pd.DataFrame()
+                df_cafe = pd.DataFrame(c_data.get('items', [])) if c_status == 200 else pd.DataFrame()
+                df_shop = pd.DataFrame(s_data.get('items', [])) if s_status == 200 else pd.DataFrame()
+                
+                # 1. 상단 핵심 요약 지표 (Metrics)
+                st.subheader("📊 데이터 수집 현황 요약")
+                m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+                
+                with m_col1:
+                    st.metric("수집된 블로그 수", len(df_blog))
+                with m_col2:
+                    st.metric("수집된 뉴스 기사 수", len(df_news))
+                with m_col3:
+                    st.metric("수집된 카페 게시글 수", len(df_cafe))
+                with m_col4:
+                    if not df_shop.empty and 'lprice' in df_shop.columns:
+                        df_shop['lprice'] = pd.to_numeric(df_shop['lprice'], errors='coerce').fillna(0).astype(int)
+                        # 0원 가격 제외
+                        df_shop_filtered = df_shop[df_shop['lprice'] > 0]
+                        if not df_shop_filtered.empty:
+                            mean_price = int(df_shop_filtered['lprice'].mean())
+                            st.metric("쇼핑 상품 평균가", f"{mean_price:,}원")
+                        else:
+                            st.metric("쇼핑 상품 평균가", "N/A")
+                    else:
+                        st.metric("쇼핑 상품 평균가", "N/A")
+                
+                st.markdown("---")
+                
+                # 2. 미디어 및 소셜 여론 트렌드 비교 (뉴스 vs 블로그 시계열)
+                st.subheader("📈 미디어(뉴스) 및 여론(블로그) 트렌드 비교")
+                
+                # 날짜 처리
+                df_blog_trend = pd.DataFrame()
+                if not df_blog.empty and 'postdate' in df_blog.columns:
+                    df_blog['parsed_date'] = df_blog['postdate'].apply(parse_postdate)
+                    df_blog_trend = df_blog.groupby('parsed_date').size().reset_index(name='블로그 글 수')
+                    df_blog_trend.rename(columns={'parsed_date': 'date'}, inplace=True)
+                
+                df_news_trend = pd.DataFrame()
+                if not df_news.empty and 'pubDate' in df_news.columns:
+                    df_news['parsed_date'] = df_news['pubDate'].apply(parse_pubdate)
+                    if not df_news['parsed_date'].empty:
+                        df_news['date_only'] = pd.to_datetime(df_news['parsed_date']).dt.date
+                        df_news_trend = df_news.groupby('date_only').size().reset_index(name='뉴스 기사 수')
+                        df_news_trend.rename(columns={'date_only': 'date'}, inplace=True)
+                        df_news_trend['date'] = pd.to_datetime(df_news_trend['date'])
+                
+                # 데이터 병합하여 하나의 차트에 렌더링
+                if not df_blog_trend.empty or not df_news_trend.empty:
+                    if df_blog_trend.empty:
+                        df_merged = df_news_trend
+                    elif df_news_trend.empty:
+                        df_merged = df_blog_trend
+                    else:
+                        df_merged = pd.merge(df_blog_trend, df_news_trend, on='date', how='outer').fillna(0)
+                    
+                    df_merged = df_merged.sort_values(by='date')
+                    
+                    # 날짜 기간 필터 적용
+                    start_dt = pd.to_datetime(start_date)
+                    end_dt = pd.to_datetime(end_date)
+                    df_merged = df_merged[(df_merged['date'] >= start_dt) & (df_merged['date'] <= end_dt)]
+                    
+                    if df_merged.empty:
+                        st.info("선택한 분석 기간 내에 수집된 블로그/뉴스 트렌드 데이터가 없습니다.")
+                    else:
+                        fig_combined = go.Figure()
+                        if '뉴스 기사 수' in df_merged.columns:
+                            fig_combined.add_trace(go.Scatter(x=df_merged['date'], y=df_merged['뉴스 기사 수'], mode='lines+markers', name='뉴스 기사 수', line=dict(color='#007A87', width=2)))
+                        if '블로그 글 수' in df_merged.columns:
+                            fig_combined.add_trace(go.Scatter(x=df_merged['date'], y=df_merged['블로그 글 수'], mode='lines+markers', name='블로그 글 수', line=dict(color='#1EC800', width=2)))
+                        
+                        fig_combined.update_layout(
+                            title="일자별 뉴스 보도량 vs 블로그 작성량 추이 비교",
+                            xaxis_title="날짜",
+                            yaxis_title="수집 건수",
+                            template="plotly_white",
+                            hovermode="x unified"
+                        )
+                        st.plotly_chart(fig_combined, use_container_width=True)
+                else:
+                    st.info("시계열 트렌드 데이터를 시각화할 수 없습니다.")
+                
+                # 3. 주요 키워드 분석 및 쇼핑 분포 (2열 구성)
+                st.subheader("🗣️ 여론 키워드 및 시장 분석")
+                col_left, col_right = st.columns(2)
+                
+                with col_left:
+                    st.markdown("**통합 여론 키워드 빈도 (블로그 + 뉴스 + 카페)**")
+                    combined_texts = []
+                    if not df_blog.empty:
+                        combined_texts.extend((df_blog['title'] + " " + df_blog['description']).tolist())
+                    if not df_news.empty:
+                        combined_texts.extend((df_news['title'] + " " + df_news['description']).tolist())
+                    if not df_cafe.empty:
+                        combined_texts.extend((df_cafe['title'] + " " + df_cafe['description']).tolist())
+                    
+                    if combined_texts:
+                        freqs = get_word_frequencies(combined_texts)
+                        if not freqs.empty:
+                            fig_word = px.bar(
+                                x=freqs.values,
+                                y=freqs.index,
+                                orientation="h",
+                                labels={"x": "빈도수", "y": "단어"},
+                                template="plotly_white",
+                                color_discrete_sequence=["#FF5A5F"]
+                            )
+                            fig_word.update_layout(height=350, margin=dict(l=10, r=10, t=10, b=10))
+                            st.plotly_chart(fig_word, use_container_width=True)
+                        else:
+                            st.write("분석할 텍스트 키워드가 부족합니다.")
+                    else:
+                        st.write("수집된 텍스트 데이터가 없습니다.")
+                
+                with col_right:
+                    st.markdown("**쇼핑 상품 최저가 가격 분포**")
+                    if not df_shop.empty and 'lprice' in df_shop.columns:
+                        df_shop['lprice'] = pd.to_numeric(df_shop['lprice'], errors='coerce').fillna(0).astype(int)
+                        df_shop_filtered = df_shop[df_shop['lprice'] > 0]
+                        if not df_shop_filtered.empty:
+                            fig_box = px.box(
+                                df_shop_filtered,
+                                y="lprice",
+                                points="outliers",
+                                labels={"lprice": "최저가 (원)"},
+                                template="plotly_white",
+                                color_discrete_sequence=["#1EC800"]
+                            )
+                            fig_box.update_layout(height=350, margin=dict(l=10, r=10, t=10, b=10))
+                            st.plotly_chart(fig_box, use_container_width=True)
+                        else:
+                            st.write("유효한 가격 정보를 가진 상품이 없습니다.")
+                    else:
+                        st.write("수집된 쇼핑 데이터가 없습니다.")
+                
+                # 4. 통합 원문 상세 링크 뷰어 (st.tabs 사용)
+                st.subheader("📋 수집 데이터 통합 뷰어")
+                tab_news, tab_blog, tab_cafe, tab_shop = st.tabs(["뉴스", "블로그", "카페글", "쇼핑 상품"])
+                
+                with tab_news:
+                    if not df_news.empty:
+                        st.dataframe(
+                            df_news[['title', 'pubDate', 'originallink']].rename(
+                                columns={"title": "기사 제목", "pubDate": "보도시간", "originallink": "원문 링크"}
+                            ),
+                            use_container_width=True
+                        )
+                    else:
+                        st.info("수집된 뉴스 기사가 없습니다.")
+                
+                with tab_blog:
+                    if not df_blog.empty:
+                        st.dataframe(
+                            df_blog[['title', 'bloggername', 'postdate', 'link']].rename(
+                                columns={"title": "글 제목", "bloggername": "블로그명", "postdate": "작성일", "link": "링크"}
+                            ),
+                            use_container_width=True
+                        )
+                    else:
+                        st.info("수집된 블로그 글이 없습니다.")
+                
+                with tab_cafe:
+                    if not df_cafe.empty:
+                        st.dataframe(
+                            df_cafe[['title', 'cafename', 'link']].rename(
+                                columns={"title": "글 제목", "cafename": "카페명", "link": "링크"}
+                            ),
+                            use_container_width=True
+                        )
+                    else:
+                        st.info("수집된 카페글이 없습니다.")
+                
+                with tab_shop:
+                    if not df_shop.empty:
+                        st.dataframe(
+                            df_shop[['title', 'lprice', 'mallName', 'brand', 'link']].rename(
+                                columns={"title": "상품명", "lprice": "최저가", "mallName": "판매처", "brand": "브랜드", "link": "링크"}
+                            ),
+                            use_container_width=True
+                        )
+                    else:
+                        st.info("수집된 쇼핑 상품이 없습니다.")
