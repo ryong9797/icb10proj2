@@ -111,6 +111,12 @@ else:
     client_id = st.sidebar.text_input("Naver Client ID", placeholder="Client ID를 입력하세요")
     client_secret = st.sidebar.text_input("Naver Client Secret", placeholder="Client Secret을 입력하세요", type="password")
 
+# 수집기 인스턴스 초기화
+from collectors import CollectorFactory
+collector = None
+if client_id and client_secret:
+    collector = CollectorFactory.get_collector("naver", {"client_id": client_id, "client_secret": client_secret})
+
 st.sidebar.markdown("---")
 st.sidebar.title("🔍 검색 조건")
 
@@ -155,81 +161,6 @@ def check_api_keys():
         st.warning("👈 왼쪽 사이드바에서 Naver Client ID와 Client Secret을 입력해 주세요.")
         return False
     return True
-
-def get_headers():
-    return {
-        "X-Naver-Client-Id": client_id,
-        "X-Naver-Client-Secret": client_secret,
-        "Content-Type": "application/json"
-    }
-
-# 파라미터 캐싱을 통해 중복 호출 방지
-@st.cache_data(show_spinner=False)
-def fetch_datalab_trend(keywords, start_date, end_date, time_unit, client_id, client_secret):
-    url = "https://openapi.naver.com/v1/datalab/search"
-    
-    # 데이터랩은 최대 5개 그룹만 지원
-    if len(keywords) > 5:
-        keywords = keywords[:5]
-        
-    keyword_groups = [{"groupName": kw, "keywords": [kw]} for kw in keywords]
-    
-    body = {
-        "startDate": start_date.strftime("%Y-%m-%d"),
-        "endDate": end_date.strftime("%Y-%m-%d"),
-        "timeUnit": time_unit,
-        "keywordGroups": keyword_groups
-    }
-    
-    headers = {
-        "X-Naver-Client-Id": client_id,
-        "X-Naver-Client-Secret": client_secret,
-        "Content-Type": "application/json"
-    }
-    
-    response = requests.post(url, data=json.dumps(body), headers=headers)
-    return response.status_code, response.json()
-
-@st.cache_data(show_spinner=False)
-def fetch_datalab_shopping_trend(keywords, start_date, end_date, time_unit, category_code, client_id, client_secret):
-    url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
-    
-    if len(keywords) > 5:
-        keywords = keywords[:5]
-        
-    keywords_param = [{"name": kw, "param": [kw]} for kw in keywords]
-    
-    body = {
-        "startDate": start_date.strftime("%Y-%m-%d"),
-        "endDate": end_date.strftime("%Y-%m-%d"),
-        "timeUnit": time_unit,
-        "category": category_code,
-        "keyword": keywords_param
-    }
-    
-    headers = {
-        "X-Naver-Client-Id": client_id,
-        "X-Naver-Client-Secret": client_secret,
-        "Content-Type": "application/json"
-    }
-    
-    response = requests.post(url, data=json.dumps(body), headers=headers)
-    return response.status_code, response.json()
-
-@st.cache_data(show_spinner=False)
-def fetch_search_api(api_type, query, display=100, start=1):
-    url = f"https://openapi.naver.com/v1/search/{api_type}.json"
-    params = {
-        "query": query,
-        "display": display,
-        "start": start
-    }
-    headers = {
-        "X-Naver-Client-Id": client_id,
-        "X-Naver-Client-Secret": client_secret
-    }
-    response = requests.get(url, headers=headers, params=params)
-    return response.status_code, response.json()
 
 # 텍스트 형태소 및 단어 빈도 분석
 def get_word_frequencies(texts):
@@ -279,7 +210,7 @@ if check_api_keys():
                 st.warning("⚠️ 데이터랩 API는 한 번에 최대 5개의 검색어만 비교 가능합니다. 앞의 5개 검색어로 분석을 시작합니다.")
             
             with st.spinner("네이버 데이터랩 API 호출 중..."):
-                status, data = fetch_datalab_trend(keywords, start_date, end_date, time_unit, client_id, client_secret)
+                status, data = collector.fetch_trend(keywords, start_date, end_date, time_unit=time_unit, trend_type="search")
                 
             if status == 200:
                 results = data.get('results', [])
@@ -362,7 +293,7 @@ if check_api_keys():
                 st.warning("⚠️ 데이터랩 API는 한 번에 최대 5개의 검색어만 비교 가능합니다. 앞의 5개 검색어로 분석을 시작합니다.")
                 
             with st.spinner("네이버 쇼핑트렌드 API 호출 중..."):
-                status, data = fetch_datalab_shopping_trend(keywords, start_date, end_date, time_unit, cat_code, client_id, client_secret)
+                status, data = collector.fetch_trend(keywords, start_date, end_date, time_unit=time_unit, trend_type="shopping", category_code=cat_code)
                 
             if status == 200:
                 results = data.get('results', [])
@@ -421,7 +352,7 @@ if check_api_keys():
             all_blogs = []
             with st.spinner("블로그 검색 데이터 수집 중..."):
                 for kw in keywords:
-                    status, data = fetch_search_api("blog", kw, display=100)
+                    status, data = collector.fetch_search_data("blog", kw, display=100)
                     if status == 200:
                         items = data.get('items', [])
                         for item in items:
@@ -515,7 +446,7 @@ if check_api_keys():
             all_news = []
             with st.spinner("뉴스 데이터 수집 중..."):
                 for kw in keywords:
-                    status, data = fetch_search_api("news", kw, display=100)
+                    status, data = collector.fetch_search_data("news", kw, display=100)
                     if status == 200:
                         items = data.get('items', [])
                         for item in items:
@@ -589,7 +520,7 @@ if check_api_keys():
             all_cafes = []
             with st.spinner("카페글 데이터 수집 중..."):
                 for kw in keywords:
-                    status, data = fetch_search_api("cafearticle", kw, display=100)
+                    status, data = collector.fetch_search_data("cafearticle", kw, display=100)
                     if status == 200:
                         items = data.get('items', [])
                         for item in items:
@@ -652,7 +583,7 @@ if check_api_keys():
             all_products = []
             with st.spinner("쇼핑 데이터 수집 중..."):
                 for kw in keywords:
-                    status, data = fetch_search_api("shopping", kw, display=100)
+                    status, data = collector.fetch_search_data("shopping", kw, display=100)
                     if status == 200:
                         items = data.get('items', [])
                         for item in items:
@@ -770,10 +701,10 @@ if check_api_keys():
             else:
                 # 데이터 수집 (네이버 검색 API 호출)
                 with st.spinner(f"[{selected_keyword}] 관련 데이터 수집 중 (블로그, 뉴스, 카페, 쇼핑)..."):
-                    b_status, b_data = fetch_search_api("blog", selected_keyword, display=100)
-                    n_status, n_data = fetch_search_api("news", selected_keyword, display=100)
-                    c_status, c_data = fetch_search_api("cafearticle", selected_keyword, display=100)
-                    s_status, s_data = fetch_search_api("shopping", selected_keyword, display=100)
+                    b_status, b_data = collector.fetch_search_data("blog", selected_keyword, display=100)
+                    n_status, n_data = collector.fetch_search_data("news", selected_keyword, display=100)
+                    c_status, c_data = collector.fetch_search_data("cafearticle", selected_keyword, display=100)
+                    s_status, s_data = collector.fetch_search_data("shopping", selected_keyword, display=100)
                 
                 # 데이터프레임 변환
                 df_blog = pd.DataFrame(b_data.get('items', [])) if b_status == 200 else pd.DataFrame()
