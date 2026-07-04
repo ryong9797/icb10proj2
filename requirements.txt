@@ -4,3 +4,9 @@ numpy==2.4.6
 plotly==6.8.0
 requests==2.34.2
 python-dotenv
+matplotlib
+koreanize-matplotlib
+scikit-learn
+folium
+streamlit-folium
+geopandas
