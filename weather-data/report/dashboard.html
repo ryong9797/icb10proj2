@@ -701,6 +701,7 @@
                         return {
                             item_name: name,
                             current_price: price,
+                            predicted_price: Math.floor(price * (1 + parseFloat(change) / 100)),
                             change_rate: parseFloat(change),
                             sparkline: Array.from({length: 7}, () => price * (1 + (Math.random() * 0.2 - 0.1)))
                         };
