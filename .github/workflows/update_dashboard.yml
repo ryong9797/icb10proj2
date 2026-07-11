@@ -13,24 +13,27 @@ jobs:
     - name: 저장소 코드 가져오기
       uses: actions/checkout@v3
 
-    - name: 파이썬 설치하기
+    - name: 파이썬 설치
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: 필요한 프로그램 싹 다 설치
-      run: |
-        pip install pandas requests beautifulsoup4 lxml scikit-learn matplotlib
+    - name: 필수 부품 설치
+      run: pip install pandas requests beautifulsoup4 lxml scikit-learn matplotlib
 
-    - name: 🐍 파이썬 스크립트 강제 실행
+    - name: 스크립트 실행 및 결과물 수거
       run: |
-        # 창고 안의 모든 .py 파일을 찾아서 실행합니다
-        find . -maxdepth 2 -name "*.py" -exec python {} \;
+        cd weather-data
+        mkdir -p report/api
+        # 파일들을 실행하고, 결과로 생긴 모든 json 파일을 report/api로 강제 이동합니다
+        python analyze_error.py || true
+        python export_static.py || true
+        cp *.json report/api/ || true
 
-    - name: 💾 결과 저장
+    - name: 깃허브 창고에 파일 저장
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add -A
-        git commit -m "데이터 업데이트" || exit 0
+        git add weather-data/report/api/
+        git commit -m "최종 데이터 업데이트 완료" || exit 0
         git push
