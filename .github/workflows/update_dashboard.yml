@@ -8,20 +8,20 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-    - run: pip install pandas requests beautifulsoup4 lxml scikit-learn matplotlib
-    - run: |
-        cd weather-data
-        python export_static.py || true
-        # 결과물이 report 폴더 근처에 생겼을 테니 다 긁어모읍니다.
-        cp -r report ../
-    - name: 결과물 저장
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add report/
-        git commit -m "데이터 파일 강제 보관" || exit 0
-        git push
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - run: pip install pandas requests beautifulsoup4 lxml scikit-learn matplotlib
+      - name: 데이터 업데이트 실행
+        run: |
+          cd weather-data
+          python export_static.py
+      - name: 결과물 강제 업로드
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # report 폴더 내의 모든 파일을 깃허브에 강제로 저장
+          git add -f weather-data/report/*
+          git commit -m "최종 데이터 업데이트" || exit 0
+          git push
