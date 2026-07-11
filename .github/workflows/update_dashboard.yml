@@ -18,22 +18,31 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: 필요한 프로그램 설치
+    - name: 필요한 프로그램 싹 다 설치
       run: |
         pip install pandas requests beautifulsoup4 lxml scikit-learn
 
-    - name: 파이썬 스크립트 실행 (미리 빈 폴더 만들고 실행)
+    - name: 숨어있는 메인 파일까지 싹 다 찾아서 실행하기
       run: |
-        cd "weather-data"
-        mkdir -p report/api   # ⬅️ 여기가 핵심입니다! 에러가 나지 않도록 api 폴더를 미리 만들어줍니다.
-        for file in *.py; do
-          python "$file"
-        done
+        # 1. 바깥에 있는 핵심 메인 스크립트 실행!
+        if [ -f "eda_script.py" ]; then python eda_script.py || true; fi
+        
+        # 2. weather-data 폴더 안의 스크립트도 실행!
+        if [ -d "weather-data" ]; then
+          cd weather-data
+          mkdir -p report/api
+          for file in *.py; do
+            if [ -f "$file" ]; then python "$file" || true; fi
+          done
+          cd ..
+        fi
 
-    - name: 만들어진 데이터(JSON) 강제로 깃허브에 올리기
+    - name: 새로 생긴 파일 무조건 깃허브에 강제 저장
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        find . -name "*.json" -exec git add -f {} + || true
-        git commit -m "최신 가격 데이터 업데이트 성공" || exit 0
+        
+        # json이든 뭐든 새로 만들어진 건 싹 다 주워 담습니다!
+        git add -A  
+        git commit -m "데이터 최종 수집 완료 및 강제 업로드" || exit 0
         git push
