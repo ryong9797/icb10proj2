@@ -17,7 +17,7 @@ jobs:
 
     - name: 필요한 프로그램 설치
       run: |
-        pip install pandas requests beautifulsoup4 lxml
+        pip install pandas requests beautifulsoup4 lxml scikit-learn
 
     - name: 파이썬 스크립트 실행해서 데이터 수집하기
       run: |
