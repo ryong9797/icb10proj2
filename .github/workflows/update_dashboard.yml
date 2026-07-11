@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # ⬅️ 로봇에게 파일 저장(쓰기) 권한을 확실하게 부여합니다.
+      contents: write
 
     steps:
     - name: 저장소 코드 가져오기
@@ -22,11 +22,12 @@ jobs:
       run: |
         pip install pandas requests beautifulsoup4 lxml scikit-learn
 
-    - name: 폴더 안의 모든 파이썬 스크립트 싹 다 실행하기
+    - name: 파이썬 스크립트 실행 (미리 빈 폴더 만들고 실행)
       run: |
         cd "weather-data"
+        mkdir -p report/api   # ⬅️ 여기가 핵심입니다! 에러가 나지 않도록 api 폴더를 미리 만들어줍니다.
         for file in *.py; do
-          python "$file" || true
+          python "$file"
         done
 
     - name: 만들어진 데이터(JSON) 강제로 깃허브에 올리기
@@ -34,6 +35,5 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         find . -name "*.json" -exec git add -f {} + || true
-        git add .
-        git commit -m "최신 가격 데이터 강제 업데이트 완료" || exit 0
+        git commit -m "최신 가격 데이터 업데이트 성공" || exit 0
         git push
