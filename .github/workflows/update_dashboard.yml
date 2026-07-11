@@ -1,0 +1,33 @@
+name: Daily Dashboard Data Update
+
+on:
+  workflow_dispatch: # ⬅️ 깃허브에서 내가 수동으로 실행할 수 있게 해주는 버튼입니다.
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 저장소 코드 가져오기
+      uses: actions/checkout@v3
+
+    - name: 파이썬 설치하기
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: 필요한 프로그램 설치
+      run: |
+        pip install pandas requests beautifulsoup4 lxml
+
+    - name: 파이썬 스크립트 실행해서 데이터 수집하기
+      run: |
+        cd "날씨 데이터"
+        python *.py  # '날씨 데이터' 폴더 안의 파이썬 파일을 실행합니다.
+
+    - name: 새로 만든 데이터(JSON)를 깃허브에 다시 올리기
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add .
+        git commit -m "자동 데이터 업데이트" || exit 0
+        git push
