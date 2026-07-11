@@ -21,19 +21,10 @@ jobs:
     - name: 필수 부품 설치
       run: pip install pandas requests beautifulsoup4 lxml scikit-learn matplotlib
 
-    - name: 스크립트 실행 및 결과물 수거
+    - name: 스크립트 실행 및 결과 확인
       run: |
         cd weather-data
-        mkdir -p report/api
-        # 파일들을 실행하고, 결과로 생긴 모든 json 파일을 report/api로 강제 이동합니다
-        python analyze_error.py || true
-        python export_static.py || true
-        cp *.json report/api/ || true
-
-    - name: 깃허브 창고에 파일 저장
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add weather-data/report/api/
-        git commit -m "최종 데이터 업데이트 완료" || exit 0
-        git push
+        python analyze_error.py
+        python export_static.py
+        echo "--- 현재 폴더의 모든 파일 목록 ---"
+        find . -maxdepth 3
