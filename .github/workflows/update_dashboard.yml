@@ -21,7 +21,7 @@ jobs:
 
     - name: 파이썬 스크립트 실행해서 데이터 수집하기
       run: |
-        cd "날씨 데이터"
+        cd weather-data
         python *.py  # '날씨 데이터' 폴더 안의 파이썬 파일을 실행합니다.
 
     - name: 새로 만든 데이터(JSON)를 깃허브에 다시 올리기
