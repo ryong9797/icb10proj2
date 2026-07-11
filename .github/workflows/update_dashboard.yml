@@ -22,27 +22,23 @@ jobs:
       run: |
         pip install pandas requests beautifulsoup4 lxml scikit-learn
 
-    - name: 숨어있는 메인 파일까지 싹 다 찾아서 실행하기
+    - name: 🐍 파이썬 스크립트 정직하게 실행 (에러 숨김 금지!)
       run: |
-        # 1. 바깥에 있는 핵심 메인 스크립트 실행!
-        if [ -f "eda_script.py" ]; then python eda_script.py || true; fi
+        if [ -f "eda_script.py" ]; then python eda_script.py; fi
         
-        # 2. weather-data 폴더 안의 스크립트도 실행!
         if [ -d "weather-data" ]; then
           cd weather-data
           mkdir -p report/api
           for file in *.py; do
-            if [ -f "$file" ]; then python "$file" || true; fi
+            if [ -f "$file" ]; then python "$file"; fi
           done
-          cd ..
         fi
 
-    - name: 새로 생긴 파일 무조건 깃허브에 강제 저장
+    - name: 💾 만들어진 파일 깃허브에 저장
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        
-        # json이든 뭐든 새로 만들어진 건 싹 다 주워 담습니다!
-        git add -A  
-        git commit -m "데이터 최종 수집 완료 및 강제 업로드" || exit 0
+        find . -name "*.json" -exec git add -f {} + || true
+        git add -A
+        git commit -m "챗봇용 데이터 업데이트" || exit 0
         git push
