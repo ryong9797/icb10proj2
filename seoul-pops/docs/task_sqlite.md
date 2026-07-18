@@ -1,0 +1,13 @@
+- `[x]` 1. 데이터 파이프라인 스크립트 작성 (`seoul-pops/src/build_db.py`)
+  - `[x]` Parquet 및 엑셀 매핑 데이터 로드, 컬럼 밀림 현상 복구
+  - `[x]` 시간대별, 구별/동별 사전 집계(Sum, Mean) 수행
+  - `[x]` SQLite 데이터베이스(`dashboard.db`)로 테이블 저장
+- `[x]` 2. 유틸리티 로직 업데이트 (`utils.py`)
+  - `[x]` `load_map_data_from_db()` 함수 작성 (SQLite 쿼리 및 캐싱)
+  - `[x]` `get_db_metadata()` 함수 작성 (시간대 범위 및 컬럼 정보 캐싱)
+- `[x]` 3. 대시보드 앱 성능 최적화 (`app.py`)
+  - `[x]` 불필요한 전체 Parquet 데이터 로딩 방지 (Map 탭일 때는 DB만 활용)
+  - `[x]` Map 탭에서 실시간 Groupby 대신 SQLite 사전 집계 데이터 쿼리로 변경
+- `[/]` 4. 검증 및 테스트
+  - `[ ]` `build_db.py` 정상 실행 및 `.db` 파일 확인
+  - `[ ]` Map 탭 렌더링 속도 측정 및 검증

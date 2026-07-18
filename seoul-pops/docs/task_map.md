@@ -1,0 +1,10 @@
+- `[x]` 1. GeoJSON 로드 유틸리티 구현 (`seoul-pops/report/utils.py`, `src/utils.py`)
+  - `[x]` 서울시 구별 GeoJSON URL 연동
+  - `[x]` 서울시 동별 GeoJSON URL 연동
+- `[x]` 2. 대시보드 지도 탭 구성 (`seoul-pops/report/app.py`, `src/app.py`)
+  - `[x]` 시간대 선택 슬라이더 추가 (0시~23시)
+  - `[x]` 집계 기준(구별/동별) 선택 라디오 버튼 추가
+  - `[x]` 데이터 필터링 및 집계(합계/평균) 로직 구현
+- `[x]` 3. Folium 코로플리스 맵 연동
+  - `[x]` `streamlit_folium`을 통한 지도 시각화
+  - `[x]` 우측에 해당 지역별 인구수(또는 밀도) 순위 표 배치

@@ -1,0 +1,9 @@
+- `[x]` 1. 데이터 처리 및 공통 유틸리티 구현 (`seoul-pops/src/utils.py`)
+  - `[x]` Parquet 파일 및 Excel 매핑 정보 로드 기능 (캐싱 적용)
+  - `[x]` 기초 통계 및 왜도/첨도 계산 유틸리티
+- `[x]` 2. Streamlit 대시보드 메인 구현 (`seoul-pops/src/app.py`)
+  - `[x]` 사이드바 및 레이아웃 구성
+  - `[x]` Overview (데이터 구조, 결측치, 요약 통계) 구현
+  - `[x]` Item Analysis (단일 변수 분포 시각화 - Plotly) 구현
+  - `[x]` Correlation Analysis (상관관계 및 산점도 시각화) 구현
+- `[x]` 3. 대시보드 실행 테스트 (수동 검증 안내)
